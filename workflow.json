@@ -1,0 +1,37 @@
+{
+  "workflow": {
+    "nodes": [
+      {
+        "id": "input_node",
+        "type": "Input",
+        "label": "KPI Data Upload & Questions",
+        "nodeCategory": "input"
+      },
+      {
+        "id": "performance_agent",
+        "type": "Agent",
+        "label": "Performance Insight Agent",
+        "nodeCategory": "agent",
+        "agent_id": "699dff055c317630d49ab03c",
+        "model": "gpt-4.1",
+        "provider": "openai"
+      },
+      {
+        "id": "output_node",
+        "type": "Output",
+        "label": "Dashboard Results",
+        "nodeCategory": "end"
+      }
+    ],
+    "edges": [
+      {
+        "source": "input_node",
+        "target": "performance_agent"
+      },
+      {
+        "source": "performance_agent",
+        "target": "output_node"
+      }
+    ]
+  }
+}

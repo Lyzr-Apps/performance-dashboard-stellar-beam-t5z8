@@ -1,0 +1,82 @@
+{
+  "agent_name": "Performance Insight Agent",
+  "agent_id": "699dff055c317630d49ab03c",
+  "description": "Analyzes uploaded employee KPI data to generate performance rankings, trend analysis, individual employee summaries, attendance insights, and answers natural language questions about team performance.",
+  "agent_type": "json",
+  "accessor": "result",
+  "auto_generated": true,
+  "response_schema": {
+    "analysis_type": "string",
+    "summary": "string",
+    "top_performers": [
+      {
+        "name": "string",
+        "rank": "number",
+        "final_points": "number",
+        "highlight": "string"
+      }
+    ],
+    "bottom_performers": [
+      {
+        "name": "string",
+        "rank": "number",
+        "final_points": "number",
+        "concern": "string"
+      }
+    ],
+    "attendance_flags": [
+      {
+        "name": "string",
+        "issue": "string",
+        "attendance_score": "number"
+      }
+    ],
+    "trends": [
+      {
+        "metric": "string",
+        "direction": "string",
+        "detail": "string"
+      }
+    ],
+    "recommendations": [
+      "string"
+    ]
+  },
+  "example_response": {
+    "analysis_type": "Type of analysis: rankings, trends, attendance, individual, comparison, insights, general",
+    "summary": "Natural language summary of the analysis",
+    "top_performers": [
+      {
+        "name": "sample string",
+        "rank": 0,
+        "final_points": 0,
+        "highlight": "sample string"
+      }
+    ],
+    "bottom_performers": [
+      {
+        "name": "sample string",
+        "rank": 0,
+        "final_points": 0,
+        "concern": "sample string"
+      }
+    ],
+    "attendance_flags": [
+      {
+        "name": "sample string",
+        "issue": "sample string",
+        "attendance_score": 0
+      }
+    ],
+    "trends": [
+      {
+        "metric": "sample string",
+        "direction": "sample string",
+        "detail": "sample string"
+      }
+    ],
+    "recommendations": [
+      "sample string"
+    ]
+  }
+}

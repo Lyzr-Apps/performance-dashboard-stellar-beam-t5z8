@@ -1,0 +1,11 @@
+{
+  "agents": {
+    "performance_insight_agent": {
+      "agent_id": "699dff055c317630d49ab03c",
+      "name": "Performance Insight Agent",
+      "type": "single",
+      "model": "gpt-4.1",
+      "provider": "openai"
+    }
+  }
+}
