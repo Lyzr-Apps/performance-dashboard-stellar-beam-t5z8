@@ -15,18 +15,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Progress } from '@/components/ui/progress'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  Radar, LineChart, Line, Legend, Cell
+  Radar, LineChart, Line, Legend, Cell, PieChart, Pie, ScatterChart, Scatter,
+  AreaChart, Area
 } from 'recharts'
 import {
   FiUpload, FiSend, FiArrowLeft, FiTrendingUp, FiTrendingDown, FiUsers,
   FiAward, FiAlertTriangle, FiMessageSquare, FiBarChart2, FiChevronDown,
   FiChevronUp, FiTarget, FiClock, FiStar, FiZap, FiX, FiCheckCircle,
-  FiInfo, FiActivity, FiPercent
+  FiInfo, FiActivity, FiPercent, FiFilter, FiGrid, FiUser
 } from 'react-icons/fi'
+import { HiOutlineSparkles } from 'react-icons/hi2'
+import { BsGraphUpArrow } from 'react-icons/bs'
 
 // ---- TYPES ----
 
@@ -295,38 +297,52 @@ function CustomBarTooltip({ active, payload, label }: any) {
       <p className="text-foreground font-semibold text-sm mb-1">{label}</p>
       {payload.map((entry: any, idx: number) => (
         <p key={idx} className="text-muted-foreground text-xs">
-          {entry.name}: <span className="text-foreground font-medium">{entry.value}</span>
+          {entry.name}: <span className="text-foreground font-medium">{typeof entry.value === 'number' ? entry.value.toFixed(1) : entry.value}</span>
         </p>
       ))}
     </div>
   )
 }
 
-// ---- KPI CARD ----
-
-function KpiCard({ icon, label, value, sub, accentColor }: {
-  icon: React.ReactNode
-  label: string
-  value: string | number
-  sub?: string
-  accentColor?: string
-}) {
+function CustomScatterTooltip({ active, payload }: any) {
+  if (!active || !payload || !payload.length) return null
+  const data = payload[0]?.payload
+  if (!data) return null
   return (
-    <Card className="bg-card border border-border shadow-lg shadow-black/10 overflow-hidden">
-      <div className="flex items-stretch">
-        <div className="w-1 shrink-0" style={{ backgroundColor: accentColor || 'hsl(36, 60%, 31%)' }} />
-        <CardContent className="flex items-center gap-4 p-4 flex-1">
-          <div className="p-2.5 rounded-lg bg-secondary/80 text-accent-foreground">
-            {icon}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs tracking-wide uppercase text-muted-foreground font-sans">{label}</p>
-            <p className="text-2xl font-serif font-bold text-foreground leading-tight">{value}</p>
-            {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
-          </div>
-        </CardContent>
+    <div className="bg-card border border-border rounded-lg p-3 shadow-xl">
+      <p className="text-foreground font-semibold text-sm mb-1">{data?.name ?? 'Employee'}</p>
+      <p className="text-muted-foreground text-xs">Productivity: <span className="text-foreground font-medium">{data?.productivity ?? 0}</span></p>
+      <p className="text-muted-foreground text-xs">Quality: <span className="text-foreground font-medium">{data?.quality ?? 0}</span></p>
+      <p className="text-muted-foreground text-xs">Final: <span className="text-foreground font-medium">{data?.finalPoints ?? 0}</span></p>
+    </div>
+  )
+}
+
+// ---- GAUGE RING (Power BI-style donut gauge) ----
+
+function GaugeRing({ value, max, color, label, size = 110 }: { value: number; max: number; color: string; label: string; size?: number }) {
+  const percentage = Math.min((value / max) * 100, 100)
+  const data = [
+    { name: 'filled', value: percentage },
+    { name: 'empty', value: 100 - percentage },
+  ]
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div style={{ width: size, height: size }} className="relative">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie data={data} cx="50%" cy="50%" innerRadius="70%" outerRadius="90%" startAngle={90} endAngle={-270} dataKey="value" stroke="none">
+              <Cell fill={color} />
+              <Cell fill="hsl(20, 18%, 12%)" />
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-lg font-bold text-foreground font-serif">{typeof value === 'number' ? value.toFixed(1) : value}</span>
+        </div>
       </div>
-    </Card>
+      <span className="text-[10px] text-muted-foreground tracking-wider uppercase text-center leading-tight">{label}</span>
+    </div>
   )
 }
 
@@ -368,6 +384,46 @@ function InsightCard({ icon, title, children, color }: {
       </CardHeader>
       <CardContent className="px-4 pb-4 pt-0">{children}</CardContent>
     </Card>
+  )
+}
+
+// ---- POWER BI TILE HEADER ----
+
+function TileHeader({ title, icon }: { title: string; icon?: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 px-4 pt-3 pb-2">
+      {icon && <span className="text-muted-foreground">{icon}</span>}
+      <span className="text-[10px] tracking-wider uppercase text-muted-foreground font-sans font-medium">{title}</span>
+    </div>
+  )
+}
+
+// ---- CONDITIONAL COLOR HELPER ----
+
+function kpiColor(value: number): string {
+  if (value >= 90) return 'hsl(142, 40%, 35%)'
+  if (value >= 80) return 'hsl(36, 60%, 31%)'
+  return 'hsl(0, 63%, 31%)'
+}
+
+function kpiColorClass(value: number): string {
+  if (value >= 90) return 'text-green-400'
+  if (value >= 80) return 'text-amber-400'
+  return 'text-red-400'
+}
+
+// ---- CUSTOM PIE LABEL ----
+
+function renderCustomPieLabel({ cx, cy, midAngle, innerRadius, outerRadius, name, value }: any) {
+  if (value === 0) return null
+  const RADIAN = Math.PI / 180
+  const radius = outerRadius + 20
+  const x = cx + radius * Math.cos(-midAngle * RADIAN)
+  const y = cy + radius * Math.sin(-midAngle * RADIAN)
+  return (
+    <text x={x} y={y} fill="hsl(35, 15%, 55%)" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={10}>
+      {name} ({value})
+    </text>
   )
 }
 
@@ -441,7 +497,7 @@ export default function Page() {
         bv = String(bv).toLowerCase()
         return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
       }
-      if (sortField === 'rank') return 0 // rank is derived
+      if (sortField === 'rank') return 0
       return sortDir === 'asc' ? (av - bv) : (bv - av)
     })
     return arr
@@ -465,6 +521,69 @@ export default function Page() {
     const sorted = [...aggregatedEmployees].sort((a, b) => b.finalPoints - a.finalPoints).slice(0, 10)
     return sorted.map(e => ({ name: e.name.split(' ')[0], fullName: e.name, finalPoints: e.finalPoints }))
   }, [aggregatedEmployees])
+
+  // Chart data: grouped bar - all KPIs by employee
+  const groupedBarData = useMemo(() => {
+    const sorted = [...aggregatedEmployees].sort((a, b) => b.finalPoints - a.finalPoints).slice(0, 12)
+    return sorted.map(e => ({
+      name: e.name.split(' ')[0],
+      fullName: e.name,
+      productivity: e.productivity,
+      quality: e.quality,
+      attendance: e.attendance,
+    }))
+  }, [aggregatedEmployees])
+
+  // Chart data: performance tier donut
+  const performanceTiers = useMemo(() => {
+    return [
+      { name: 'Excellent (90+)', value: aggregatedEmployees.filter(e => e.finalPoints >= 90).length, color: 'hsl(142, 40%, 35%)' },
+      { name: 'Good (80-89)', value: aggregatedEmployees.filter(e => e.finalPoints >= 80 && e.finalPoints < 90).length, color: 'hsl(36, 60%, 31%)' },
+      { name: 'Average (70-79)', value: aggregatedEmployees.filter(e => e.finalPoints >= 70 && e.finalPoints < 80).length, color: 'hsl(27, 61%, 35%)' },
+      { name: 'Below Avg (<70)', value: aggregatedEmployees.filter(e => e.finalPoints < 70).length, color: 'hsl(0, 63%, 31%)' },
+    ]
+  }, [aggregatedEmployees])
+
+  // Chart data: scatter plot (productivity vs quality)
+  const scatterData = useMemo(() => {
+    return aggregatedEmployees.map(e => ({
+      name: e.name,
+      productivity: e.productivity,
+      quality: e.quality,
+      finalPoints: e.finalPoints,
+    }))
+  }, [aggregatedEmployees])
+
+  // Chart data: late arrivals horizontal bar
+  const lateArrivalsData = useMemo(() => {
+    return [...aggregatedEmployees]
+      .filter(e => e.late > 0)
+      .sort((a, b) => b.late - a.late)
+      .slice(0, 10)
+      .map(e => ({
+        name: e.name.split(' ')[0],
+        fullName: e.name,
+        late: e.late,
+      }))
+  }, [aggregatedEmployees])
+
+  // Chart data: area chart - team averages over months
+  const monthlyTrendData = useMemo(() => {
+    const monthMap = new Map<string, Employee[]>()
+    activeData.forEach(e => {
+      if (!e.month) return
+      const arr = monthMap.get(e.month) || []
+      arr.push(e)
+      monthMap.set(e.month, arr)
+    })
+    return Array.from(monthMap.entries()).map(([month, emps]) => ({
+      month,
+      productivity: avg(emps.map(e => e.productivity)),
+      quality: avg(emps.map(e => e.quality)),
+      attendance: avg(emps.map(e => e.attendance)),
+      finalPoints: avg(emps.map(e => e.finalPoints)),
+    }))
+  }, [activeData])
 
   // Chart data: attendance distribution
   const attendanceChartData = useMemo(() => {
@@ -518,6 +637,27 @@ export default function Page() {
     }))
   }, [selectedEmpData])
 
+  // Employee comparison data for individual view
+  const empCompareData = useMemo(() => {
+    if (!selectedEmpData) return []
+    return [
+      { metric: 'Productivity', employee: selectedEmpData.productivity, teamAvg: stats.avgProd },
+      { metric: 'Quality', employee: selectedEmpData.quality, teamAvg: stats.avgQual },
+      { metric: 'Attendance', employee: selectedEmpData.attendance, teamAvg: stats.avgAtt },
+      { metric: 'Final Score', employee: selectedEmpData.finalPoints, teamAvg: stats.avgFinal },
+    ]
+  }, [selectedEmpData, stats])
+
+  // Rank percentile donut for individual view
+  const rankPercentileData = useMemo(() => {
+    if (!selectedEmpData || sortedEmployees.length === 0) return []
+    const percentile = Math.round(((sortedEmployees.length - selectedEmpData.rank) / sortedEmployees.length) * 100)
+    return [
+      { name: 'rank', value: percentile },
+      { name: 'rest', value: 100 - percentile },
+    ]
+  }, [selectedEmpData, sortedEmployees])
+
   // Scroll chat to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -555,7 +695,6 @@ export default function Page() {
     }
     reader.readAsText(file)
 
-    // Reset input so same file can be uploaded again
     if (fileInputRef.current) fileInputRef.current.value = ''
   }, [])
 
@@ -660,132 +799,170 @@ export default function Page() {
 
   // ---- INDIVIDUAL EMPLOYEE VIEW ----
   if (selectedEmployee && selectedEmpData) {
+    const empPercentile = sortedEmployees.length > 0
+      ? Math.round(((sortedEmployees.length - selectedEmpData.rank) / sortedEmployees.length) * 100)
+      : 0
+
     return (
       <ErrorBoundary>
         <div className="min-h-screen bg-background text-foreground">
-          <div className="max-w-7xl mx-auto px-4 py-6">
-            {/* Back button */}
-            <Button
-              variant="ghost"
-              onClick={() => setSelectedEmployee(null)}
-              className="mb-6 text-muted-foreground hover:text-foreground"
-            >
-              <FiArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
-            </Button>
+          {/* Compact header bar */}
+          <header className="border-b border-border bg-card/80 backdrop-blur sticky top-0 z-40">
+            <div className="px-4 py-2.5 flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedEmployee(null)}
+                className="text-muted-foreground hover:text-foreground h-8"
+              >
+                <FiArrowLeft className="w-4 h-4 mr-1.5" />
+                Dashboard
+              </Button>
+              <Separator orientation="vertical" className="h-5" />
+              <div className="flex items-center gap-2 flex-1">
+                <RankBadge rank={selectedEmpData.rank} />
+                <div>
+                  <h1 className="text-sm font-serif font-bold text-foreground leading-tight">{selectedEmpData.name}</h1>
+                  <p className="text-[10px] text-muted-foreground">{selectedEmpData.empId} | Joined: {selectedEmpData.doj || 'N/A'}</p>
+                </div>
+              </div>
+              <Badge variant="outline" className="border-border text-foreground text-xs bg-secondary/50">
+                Final: {selectedEmpData.finalPoints}
+              </Badge>
+              <Badge variant="outline" className="border-border text-muted-foreground text-xs">
+                Rank #{selectedEmpData.rank} of {sortedEmployees.length}
+              </Badge>
+            </div>
+          </header>
 
-            {/* Employee header */}
-            <Card className="bg-card border border-border shadow-lg shadow-black/10 mb-6">
-              <CardContent className="p-6">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                  <div className="flex items-center gap-4">
-                    <RankBadge rank={selectedEmpData.rank} />
-                    <div>
-                      <h1 className="text-2xl font-serif font-bold text-foreground">{selectedEmpData.name}</h1>
-                      <p className="text-sm text-muted-foreground">{selectedEmpData.empId} | Joined: {selectedEmpData.doj || 'N/A'}</p>
+          <div className="p-4 space-y-3">
+            {/* Row 1: Gauge rings + Rank Percentile */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              <Card className="bg-card border border-border/50 shadow-md shadow-black/5 flex items-center justify-center py-4">
+                <GaugeRing value={selectedEmpData.productivity} max={100} color="hsl(27, 61%, 35%)" label="Productivity" />
+              </Card>
+              <Card className="bg-card border border-border/50 shadow-md shadow-black/5 flex items-center justify-center py-4">
+                <GaugeRing value={selectedEmpData.quality} max={100} color="hsl(36, 60%, 31%)" label="Quality" />
+              </Card>
+              <Card className="bg-card border border-border/50 shadow-md shadow-black/5 flex items-center justify-center py-4">
+                <GaugeRing value={selectedEmpData.attendance} max={100} color="hsl(30, 50%, 40%)" label="Attendance" />
+              </Card>
+              <Card className="bg-card border border-border/50 shadow-md shadow-black/5 flex items-center justify-center py-4">
+                <GaugeRing value={Math.max(0, 100 - selectedEmpData.late * 10)} max={100} color="hsl(20, 45%, 45%)" label="Punctuality" />
+              </Card>
+              <Card className="bg-card border border-border/50 shadow-md shadow-black/5 flex items-center justify-center py-4">
+                <div className="flex flex-col items-center gap-1">
+                  <div style={{ width: 110, height: 110 }} className="relative">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={rankPercentileData} cx="50%" cy="50%" innerRadius="70%" outerRadius="90%" startAngle={90} endAngle={-270} dataKey="value" stroke="none">
+                          <Cell fill="#C5A054" />
+                          <Cell fill="hsl(20, 18%, 12%)" />
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-lg font-bold text-foreground font-serif">{empPercentile}%</span>
+                      <span className="text-[8px] text-muted-foreground">ile</span>
                     </div>
                   </div>
-                  <div className="flex gap-3 sm:ml-auto">
-                    <Badge variant="outline" className="border-border text-foreground bg-secondary/50">
-                      Final Score: {selectedEmpData.finalPoints}
-                    </Badge>
-                    <Badge variant="outline" className="border-border text-foreground bg-secondary/50">
-                      Rank #{selectedEmpData.rank}
-                    </Badge>
-                  </div>
+                  <span className="text-[10px] text-muted-foreground tracking-wider uppercase text-center leading-tight">Rank Percentile</span>
                 </div>
-              </CardContent>
-            </Card>
+              </Card>
+            </div>
 
-            {/* Two column charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              {/* Radar chart */}
-              <Card className="bg-card border border-border shadow-lg shadow-black/10">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-serif text-foreground flex items-center gap-2">
-                    <FiTarget className="w-4 h-4" style={{ color: 'hsl(36, 60%, 31%)' }} />
-                    KPI Distribution
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <ResponsiveContainer width="100%" height={300}>
+            {/* Row 2: Comparison Bar + Radar */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+              <Card className="lg:col-span-3 bg-card border border-border/50 shadow-md shadow-black/5">
+                <TileHeader title="Employee vs Team Average" icon={<BsGraphUpArrow className="w-3 h-3" />} />
+                <CardContent className="pt-0 pb-3 px-3">
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={empCompareData} layout="vertical" margin={{ top: 5, right: 20, left: 60, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(20, 18%, 16%)" horizontal={false} />
+                      <XAxis type="number" domain={[0, 100]} tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 10 }} stroke="hsl(20, 18%, 16%)" />
+                      <YAxis type="category" dataKey="metric" tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 11 }} stroke="hsl(20, 18%, 16%)" width={70} />
+                      <RechartsTooltip content={<CustomBarTooltip />} />
+                      <Legend wrapperStyle={{ fontSize: 10, color: 'hsl(35, 15%, 55%)' }} />
+                      <Bar dataKey="employee" name="Employee" fill="hsl(27, 61%, 35%)" radius={[0, 3, 3, 0]} barSize={14} />
+                      <Bar dataKey="teamAvg" name="Team Avg" fill="hsl(20, 18%, 25%)" radius={[0, 3, 3, 0]} barSize={14} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="lg:col-span-2 bg-card border border-border/50 shadow-md shadow-black/5">
+                <TileHeader title="KPI Distribution" icon={<FiTarget className="w-3 h-3" />} />
+                <CardContent className="pt-0 pb-3 px-3">
+                  <ResponsiveContainer width="100%" height={220}>
                     <RadarChart data={radarData}>
                       <PolarGrid stroke="hsl(20, 18%, 20%)" />
-                      <PolarAngleAxis dataKey="subject" tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 12 }} />
-                      <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 10 }} />
+                      <PolarAngleAxis dataKey="subject" tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 11 }} />
+                      <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 9 }} />
                       <Radar name="Score" dataKey="value" stroke="hsl(36, 60%, 31%)" fill="hsl(36, 60%, 31%)" fillOpacity={0.3} />
                     </RadarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
+            </div>
 
-              {/* Trend line chart */}
-              <Card className="bg-card border border-border shadow-lg shadow-black/10">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-serif text-foreground flex items-center gap-2">
-                    <FiTrendingUp className="w-4 h-4" style={{ color: 'hsl(27, 61%, 35%)' }} />
-                    Performance Trend
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
+            {/* Row 3: Trend line + Monthly breakdown table */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <Card className="bg-card border border-border/50 shadow-md shadow-black/5">
+                <TileHeader title="Performance Trend" icon={<FiTrendingUp className="w-3 h-3" />} />
+                <CardContent className="pt-0 pb-3 px-3">
                   {trendData.length > 1 ? (
-                    <ResponsiveContainer width="100%" height={300}>
+                    <ResponsiveContainer width="100%" height={240}>
                       <LineChart data={trendData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(20, 18%, 16%)" />
-                        <XAxis dataKey="month" tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 12 }} stroke="hsl(20, 18%, 16%)" />
-                        <YAxis tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 12 }} stroke="hsl(20, 18%, 16%)" />
+                        <XAxis dataKey="month" tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 11 }} stroke="hsl(20, 18%, 16%)" />
+                        <YAxis tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 11 }} stroke="hsl(20, 18%, 16%)" />
                         <RechartsTooltip content={<CustomBarTooltip />} />
-                        <Legend wrapperStyle={{ fontSize: 12, color: 'hsl(35, 15%, 55%)' }} />
-                        <Line type="monotone" dataKey="finalPoints" name="Final Points" stroke="hsl(36, 60%, 31%)" strokeWidth={2} dot={{ fill: 'hsl(36, 60%, 31%)', r: 4 }} />
-                        <Line type="monotone" dataKey="productivity" name="Productivity" stroke="hsl(27, 61%, 35%)" strokeWidth={2} dot={{ fill: 'hsl(27, 61%, 35%)', r: 4 }} />
-                        <Line type="monotone" dataKey="quality" name="Quality" stroke="hsl(30, 50%, 40%)" strokeWidth={2} dot={{ fill: 'hsl(30, 50%, 40%)', r: 4 }} />
+                        <Legend wrapperStyle={{ fontSize: 10, color: 'hsl(35, 15%, 55%)' }} />
+                        <Line type="monotone" dataKey="finalPoints" name="Final Points" stroke="hsl(36, 60%, 31%)" strokeWidth={2} dot={{ fill: 'hsl(36, 60%, 31%)', r: 3 }} />
+                        <Line type="monotone" dataKey="productivity" name="Productivity" stroke="hsl(27, 61%, 35%)" strokeWidth={2} dot={{ fill: 'hsl(27, 61%, 35%)', r: 3 }} />
+                        <Line type="monotone" dataKey="quality" name="Quality" stroke="hsl(30, 50%, 40%)" strokeWidth={2} dot={{ fill: 'hsl(30, 50%, 40%)', r: 3 }} />
                       </LineChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="h-[300px] flex items-center justify-center text-muted-foreground text-sm">
-                      <p>Single month data available. Upload multi-month data to see trends.</p>
+                    <div className="h-[240px] flex items-center justify-center text-muted-foreground text-sm">
+                      <p>Single month data. Upload multi-month data for trends.</p>
                     </div>
                   )}
                 </CardContent>
               </Card>
-            </div>
 
-            {/* Monthly breakdown table */}
-            <Card className="bg-card border border-border shadow-lg shadow-black/10">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-serif text-foreground">Monthly Breakdown</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-border hover:bg-transparent">
-                        <TableHead className="text-muted-foreground text-xs tracking-wide uppercase">Month</TableHead>
-                        <TableHead className="text-muted-foreground text-xs tracking-wide uppercase text-right">Productivity</TableHead>
-                        <TableHead className="text-muted-foreground text-xs tracking-wide uppercase text-right">Quality</TableHead>
-                        <TableHead className="text-muted-foreground text-xs tracking-wide uppercase text-right">Attendance</TableHead>
-                        <TableHead className="text-muted-foreground text-xs tracking-wide uppercase text-right">Late</TableHead>
-                        <TableHead className="text-muted-foreground text-xs tracking-wide uppercase text-right">Total Pts</TableHead>
-                        <TableHead className="text-muted-foreground text-xs tracking-wide uppercase text-right">Final Pts</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {selectedEmpData.allRecords.map((r, idx) => (
-                        <TableRow key={idx} className="border-border hover:bg-secondary/30">
-                          <TableCell className="text-sm font-medium text-foreground">{r.month || 'N/A'}</TableCell>
-                          <TableCell className="text-sm text-right text-foreground">{r.productivity}</TableCell>
-                          <TableCell className="text-sm text-right text-foreground">{r.quality}</TableCell>
-                          <TableCell className="text-sm text-right text-foreground">{r.attendance}</TableCell>
-                          <TableCell className="text-sm text-right text-foreground">{r.late}</TableCell>
-                          <TableCell className="text-sm text-right text-foreground">{r.totalPoints}</TableCell>
-                          <TableCell className="text-sm text-right font-semibold text-foreground">{r.finalPoints}</TableCell>
+              <Card className="bg-card border border-border/50 shadow-md shadow-black/5">
+                <TileHeader title="Monthly Breakdown" icon={<FiGrid className="w-3 h-3" />} />
+                <CardContent className="pt-0 pb-3 px-3">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-border hover:bg-transparent">
+                          <TableHead className="text-muted-foreground text-[10px] tracking-wider uppercase py-2">Month</TableHead>
+                          <TableHead className="text-muted-foreground text-[10px] tracking-wider uppercase text-right py-2">Prod</TableHead>
+                          <TableHead className="text-muted-foreground text-[10px] tracking-wider uppercase text-right py-2">Qual</TableHead>
+                          <TableHead className="text-muted-foreground text-[10px] tracking-wider uppercase text-right py-2">Att</TableHead>
+                          <TableHead className="text-muted-foreground text-[10px] tracking-wider uppercase text-right py-2">Late</TableHead>
+                          <TableHead className="text-muted-foreground text-[10px] tracking-wider uppercase text-right py-2">Final</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedEmpData.allRecords.map((r, idx) => (
+                          <TableRow key={idx} className={cn('border-border hover:bg-secondary/30', idx % 2 === 0 ? 'bg-secondary/10' : '')}>
+                            <TableCell className="text-xs font-medium text-foreground py-2">{r.month || 'N/A'}</TableCell>
+                            <TableCell className={cn('text-xs text-right py-2', kpiColorClass(r.productivity))}>{r.productivity}</TableCell>
+                            <TableCell className={cn('text-xs text-right py-2', kpiColorClass(r.quality))}>{r.quality}</TableCell>
+                            <TableCell className={cn('text-xs text-right py-2', kpiColorClass(r.attendance))}>{r.attendance}</TableCell>
+                            <TableCell className={cn('text-xs text-right py-2', r.late > 3 ? 'text-red-400' : 'text-foreground')}>{r.late}</TableCell>
+                            <TableCell className="text-xs text-right font-semibold text-foreground py-2">{r.finalPoints}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </ErrorBoundary>
@@ -796,23 +973,43 @@ export default function Page() {
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-background text-foreground">
-        {/* Header */}
-        <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40">
-          <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-secondary">
-                <FiBarChart2 className="w-5 h-5" style={{ color: 'hsl(36, 60%, 31%)' }} />
+        {/* Power BI Header Ribbon */}
+        <header className="border-b border-border bg-card/80 backdrop-blur sticky top-0 z-40">
+          <div className="px-4 py-2.5 flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 rounded-md bg-secondary">
+                <FiBarChart2 className="w-4 h-4" style={{ color: 'hsl(36, 60%, 31%)' }} />
               </div>
               <div>
-                <h1 className="text-xl font-serif font-bold text-foreground tracking-wide">KPI Performance Dashboard</h1>
-                <p className="text-xs text-muted-foreground">Team analytics and AI-powered insights</p>
+                <h1 className="text-sm font-serif font-bold text-foreground tracking-wide leading-tight">KPI Performance Dashboard</h1>
+                <p className="text-[10px] text-muted-foreground">Team analytics and AI-powered insights</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
+            <Separator orientation="vertical" className="h-6 hidden sm:block" />
+
+            {/* Month filter */}
+            {hasData && (
+              <div className="flex items-center gap-1.5">
+                <FiFilter className="w-3 h-3 text-muted-foreground" />
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                  <SelectTrigger className="w-[130px] h-8 bg-secondary/50 border-border text-foreground text-xs">
+                    <SelectValue placeholder="All Months" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover border-border">
+                    <SelectItem value="all">All Months</SelectItem>
+                    {months.map(m => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 ml-auto flex-wrap">
               {/* Sample Data Toggle */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Sample Data</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-muted-foreground tracking-wide uppercase">Sample</span>
                 <Switch
                   checked={sampleMode}
                   onCheckedChange={(checked) => {
@@ -824,16 +1021,16 @@ export default function Page() {
                 />
               </div>
 
-              <Separator orientation="vertical" className="h-6 hidden sm:block" />
+              <Separator orientation="vertical" className="h-5 hidden sm:block" />
 
-              {/* Upload button */}
               <Button
                 variant="outline"
-                className="border-border text-foreground hover:bg-secondary"
+                size="sm"
+                className="border-border text-foreground hover:bg-secondary h-8 text-xs"
                 onClick={() => fileInputRef.current?.click()}
               >
-                <FiUpload className="w-4 h-4 mr-2" />
-                Upload Data
+                <FiUpload className="w-3.5 h-3.5 mr-1.5" />
+                Upload
               </Button>
               <input
                 ref={fileInputRef}
@@ -843,21 +1040,21 @@ export default function Page() {
                 className="hidden"
               />
 
-              {/* Generate Insights */}
               <Button
+                size="sm"
                 onClick={handleGenerateInsights}
                 disabled={!hasData || insightsLoading}
-                className="bg-accent text-accent-foreground hover:bg-accent/80"
+                className="bg-accent text-accent-foreground hover:bg-accent/80 h-8 text-xs"
               >
                 {insightsLoading ? (
                   <>
-                    <FiActivity className="w-4 h-4 mr-2 animate-spin" />
-                    Analyzing...
+                    <FiActivity className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    Analyzing
                   </>
                 ) : (
                   <>
-                    <FiZap className="w-4 h-4 mr-2" />
-                    Generate Insights
+                    <HiOutlineSparkles className="w-3.5 h-3.5 mr-1.5" />
+                    AI Insights
                   </>
                 )}
               </Button>
@@ -867,12 +1064,12 @@ export default function Page() {
 
         {/* File error */}
         {fileError && (
-          <div className="max-w-7xl mx-auto px-4 mt-4">
-            <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 flex items-center gap-2 text-sm text-destructive">
-              <FiAlertTriangle className="w-4 h-4 shrink-0" />
+          <div className="px-4 mt-2">
+            <div className="bg-destructive/10 border border-destructive/30 rounded-md p-2 flex items-center gap-2 text-xs text-destructive">
+              <FiAlertTriangle className="w-3.5 h-3.5 shrink-0" />
               {fileError}
               <button onClick={() => setFileError('')} className="ml-auto">
-                <FiX className="w-4 h-4" />
+                <FiX className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
@@ -880,10 +1077,10 @@ export default function Page() {
 
         {/* Parsing skeleton */}
         {isParsingFile && (
-          <div className="max-w-7xl mx-auto px-4 mt-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+          <div className="p-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-3">
               {[1, 2, 3, 4, 5].map(i => (
-                <Skeleton key={i} className="h-24 rounded-lg bg-muted" />
+                <Skeleton key={i} className="h-[160px] rounded-lg bg-muted" />
               ))}
             </div>
             <Skeleton className="h-64 rounded-lg bg-muted" />
@@ -892,16 +1089,16 @@ export default function Page() {
 
         {/* Empty state */}
         {!hasData && !isParsingFile && (
-          <div className="max-w-7xl mx-auto px-4 mt-20 flex flex-col items-center justify-center text-center">
-            <div className="p-6 rounded-2xl bg-card border border-border shadow-lg shadow-black/10 max-w-md w-full">
-              <div className="mx-auto w-16 h-16 rounded-full bg-secondary flex items-center justify-center mb-4">
-                <FiUpload className="w-7 h-7" style={{ color: 'hsl(36, 60%, 31%)' }} />
+          <div className="flex items-center justify-center" style={{ minHeight: 'calc(100vh - 60px)' }}>
+            <div className="p-6 rounded-xl bg-card border border-border shadow-lg shadow-black/10 max-w-md w-full mx-4">
+              <div className="mx-auto w-14 h-14 rounded-full bg-secondary flex items-center justify-center mb-4">
+                <FiUpload className="w-6 h-6" style={{ color: 'hsl(36, 60%, 31%)' }} />
               </div>
-              <h2 className="text-lg font-serif font-bold text-foreground mb-2">Upload your KPI data to get started</h2>
-              <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-                Upload a CSV file with employee performance data including productivity, quality, attendance, and more. Or toggle sample data to explore the dashboard.
+              <h2 className="text-base font-serif font-bold text-foreground mb-2 text-center">Upload KPI data to begin</h2>
+              <p className="text-xs text-muted-foreground mb-5 leading-relaxed text-center">
+                Upload a CSV with employee performance data or use sample data to explore the dashboard.
               </p>
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2.5">
                 <Button
                   className="w-full bg-accent text-accent-foreground hover:bg-accent/80"
                   onClick={() => fileInputRef.current?.click()}
@@ -922,208 +1119,326 @@ export default function Page() {
           </div>
         )}
 
-        {/* Dashboard content */}
+        {/* ======== DASHBOARD CANVAS ======== */}
         {hasData && !isParsingFile && (
-          <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-            {/* KPI Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-              <KpiCard
-                icon={<FiTrendingUp className="w-5 h-5" />}
-                label="Avg Productivity"
-                value={stats.avgProd.toFixed(1)}
-                accentColor="hsl(27, 61%, 35%)"
-              />
-              <KpiCard
-                icon={<FiCheckCircle className="w-5 h-5" />}
-                label="Avg Quality"
-                value={stats.avgQual.toFixed(1)}
-                accentColor="hsl(36, 60%, 31%)"
-              />
-              <KpiCard
-                icon={<FiPercent className="w-5 h-5" />}
-                label="Avg Attendance"
-                value={stats.avgAtt.toFixed(1) + '%'}
-                accentColor="hsl(30, 50%, 40%)"
-              />
-              <KpiCard
-                icon={<FiUsers className="w-5 h-5" />}
-                label="Team Size"
-                value={stats.teamSize}
-                accentColor="hsl(20, 45%, 45%)"
-              />
-              <KpiCard
-                icon={<FiAward className="w-5 h-5" />}
-                label="Avg Final Score"
-                value={stats.avgFinal.toFixed(1)}
-                accentColor="hsl(15, 55%, 38%)"
-              />
-            </div>
+          <div className="p-3 space-y-3">
 
-            {/* Filter row */}
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground tracking-wide uppercase">Filter by Month</span>
-                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                  <SelectTrigger className="w-[160px] bg-card border-border text-foreground text-sm">
-                    <SelectValue placeholder="All Months" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border-border">
-                    <SelectItem value="all">All Months</SelectItem>
-                    {months.map(m => (
-                      <SelectItem key={m} value={m}>{m}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="ml-auto text-xs text-muted-foreground">
-                {sortedEmployees.length} employee{sortedEmployees.length !== 1 ? 's' : ''} showing
-              </div>
-            </div>
-
-            {/* Leaderboard Table */}
-            <Card className="bg-card border border-border shadow-lg shadow-black/10">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-serif text-foreground flex items-center gap-2">
-                  <FiAward className="w-4 h-4" style={{ color: '#C5A054' }} />
-                  Leaderboard
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-border hover:bg-transparent">
-                        <TableHead className="text-muted-foreground text-xs tracking-wide uppercase w-[60px]">Rank</TableHead>
-                        <TableHead className="text-muted-foreground text-xs tracking-wide uppercase cursor-pointer" onClick={() => handleSort('name')}>
-                          <span className="flex items-center gap-1">Name <SortIcon field="name" /></span>
-                        </TableHead>
-                        <TableHead className="text-muted-foreground text-xs tracking-wide uppercase text-right cursor-pointer" onClick={() => handleSort('productivity')}>
-                          <span className="flex items-center justify-end gap-1">Productivity <SortIcon field="productivity" /></span>
-                        </TableHead>
-                        <TableHead className="text-muted-foreground text-xs tracking-wide uppercase text-right cursor-pointer" onClick={() => handleSort('quality')}>
-                          <span className="flex items-center justify-end gap-1">Quality <SortIcon field="quality" /></span>
-                        </TableHead>
-                        <TableHead className="text-muted-foreground text-xs tracking-wide uppercase text-right cursor-pointer" onClick={() => handleSort('attendance')}>
-                          <span className="flex items-center justify-end gap-1">Attendance <SortIcon field="attendance" /></span>
-                        </TableHead>
-                        <TableHead className="text-muted-foreground text-xs tracking-wide uppercase text-right cursor-pointer" onClick={() => handleSort('late')}>
-                          <span className="flex items-center justify-end gap-1">Late <SortIcon field="late" /></span>
-                        </TableHead>
-                        <TableHead className="text-muted-foreground text-xs tracking-wide uppercase text-right cursor-pointer" onClick={() => handleSort('totalPoints')}>
-                          <span className="flex items-center justify-end gap-1">Total Pts <SortIcon field="totalPoints" /></span>
-                        </TableHead>
-                        <TableHead className="text-muted-foreground text-xs tracking-wide uppercase text-right cursor-pointer" onClick={() => handleSort('finalPoints')}>
-                          <span className="flex items-center justify-end gap-1">Final Pts <SortIcon field="finalPoints" /></span>
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sortedEmployees.map((emp, idx) => {
-                        const rank = idx + 1
-                        const isTop3 = rank <= 3
-                        return (
-                          <TableRow
-                            key={`${emp.empId}-${emp.month}-${idx}`}
-                            className={cn(
-                              'border-border cursor-pointer transition-colors duration-200',
-                              isTop3 ? 'hover:bg-accent/10' : 'hover:bg-secondary/30'
-                            )}
-                            onClick={() => setSelectedEmployee(emp.name)}
-                          >
-                            <TableCell className="py-3">
-                              <RankBadge rank={rank} />
-                            </TableCell>
-                            <TableCell className="py-3">
-                              <div>
-                                <p className="text-sm font-medium text-foreground">{emp.name}</p>
-                                <p className="text-xs text-muted-foreground">{emp.empId}</p>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-sm text-right text-foreground py-3">{emp.productivity}</TableCell>
-                            <TableCell className="text-sm text-right text-foreground py-3">{emp.quality}</TableCell>
-                            <TableCell className="text-sm text-right text-foreground py-3">{emp.attendance}%</TableCell>
-                            <TableCell className="text-sm text-right py-3">
-                              <span className={cn(emp.late > 3 ? 'text-red-400' : 'text-foreground')}>
-                                {emp.late}
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-sm text-right text-foreground py-3">{emp.totalPoints}</TableCell>
-                            <TableCell className="text-sm text-right font-bold py-3" style={{ color: isTop3 ? RANK_COLORS[rank] || 'hsl(35, 20%, 90%)' : 'hsl(35, 20%, 90%)' }}>
-                              {emp.finalPoints}
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
+            {/* ===== ROW 1: KPI GAUGE RINGS ===== */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              <Card className="bg-card border border-border/50 shadow-md shadow-black/5 flex items-center justify-center py-4">
+                <GaugeRing value={stats.avgProd} max={100} color="hsl(27, 61%, 35%)" label="Avg Productivity" />
+              </Card>
+              <Card className="bg-card border border-border/50 shadow-md shadow-black/5 flex items-center justify-center py-4">
+                <GaugeRing value={stats.avgQual} max={100} color="hsl(36, 60%, 31%)" label="Avg Quality" />
+              </Card>
+              <Card className="bg-card border border-border/50 shadow-md shadow-black/5 flex items-center justify-center py-4">
+                <GaugeRing value={stats.avgAtt} max={100} color="hsl(30, 50%, 40%)" label="Avg Attendance" />
+              </Card>
+              <Card className="bg-card border border-border/50 shadow-md shadow-black/5 flex items-center justify-center py-4">
+                <GaugeRing value={stats.avgFinal} max={100} color="hsl(15, 55%, 38%)" label="Avg Final Score" />
+              </Card>
+              <Card className="bg-card border border-border/50 shadow-md shadow-black/5 flex items-center justify-center py-4">
+                <div className="flex flex-col items-center gap-1">
+                  <div className="w-[110px] h-[110px] relative flex items-center justify-center">
+                    <div className="w-20 h-20 rounded-full border-4 flex items-center justify-center" style={{ borderColor: 'hsl(20, 45%, 45%)' }}>
+                      <span className="text-2xl font-bold text-foreground font-serif">{stats.teamSize}</span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground tracking-wider uppercase text-center leading-tight">Team Members</span>
                 </div>
-              </CardContent>
-            </Card>
+              </Card>
+            </div>
 
-            {/* Charts Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Top 10 Bar Chart */}
-              <Card className="bg-card border border-border shadow-lg shadow-black/10">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-serif text-foreground flex items-center gap-2">
-                    <FiStar className="w-4 h-4" style={{ color: '#C5A054' }} />
-                    Top 10 by Final Points
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <ResponsiveContainer width="100%" height={350}>
-                    <BarChart data={top10ChartData} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+            {/* ===== ROW 2: GROUPED BAR + DONUT ===== */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+              {/* Grouped Bar: All KPIs by Employee */}
+              <Card className="lg:col-span-3 bg-card border border-border/50 shadow-md shadow-black/5">
+                <TileHeader title="KPI Comparison by Employee" icon={<FiBarChart2 className="w-3 h-3" />} />
+                <CardContent className="pt-0 pb-3 px-3">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={groupedBarData} margin={{ top: 5, right: 10, left: 0, bottom: 40 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(20, 18%, 16%)" />
-                      <XAxis dataKey="name" tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 11 }} stroke="hsl(20, 18%, 16%)" angle={-35} textAnchor="end" interval={0} />
-                      <YAxis tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 11 }} stroke="hsl(20, 18%, 16%)" />
+                      <XAxis dataKey="name" tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 10 }} stroke="hsl(20, 18%, 16%)" angle={-35} textAnchor="end" interval={0} />
+                      <YAxis tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 10 }} stroke="hsl(20, 18%, 16%)" domain={[0, 100]} />
                       <RechartsTooltip content={<CustomBarTooltip />} />
-                      <Bar dataKey="finalPoints" name="Final Points" radius={[4, 4, 0, 0]}>
-                        {top10ChartData.map((_, idx) => (
-                          <Cell key={`cell-${idx}`} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
-                        ))}
-                      </Bar>
+                      <Legend wrapperStyle={{ fontSize: 10, color: 'hsl(35, 15%, 55%)' }} />
+                      <Bar dataKey="productivity" name="Productivity" fill="hsl(27, 61%, 35%)" radius={[2, 2, 0, 0]} barSize={10} />
+                      <Bar dataKey="quality" name="Quality" fill="hsl(36, 60%, 31%)" radius={[2, 2, 0, 0]} barSize={10} />
+                      <Bar dataKey="attendance" name="Attendance" fill="hsl(30, 50%, 40%)" radius={[2, 2, 0, 0]} barSize={10} />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
 
-              {/* Attendance Distribution */}
-              <Card className="bg-card border border-border shadow-lg shadow-black/10">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-serif text-foreground flex items-center gap-2">
-                    <FiClock className="w-4 h-4" style={{ color: 'hsl(30, 50%, 40%)' }} />
-                    Attendance Distribution
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <ResponsiveContainer width="100%" height={350}>
-                    <BarChart data={attendanceChartData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(20, 18%, 16%)" />
-                      <XAxis dataKey="range" tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 11 }} stroke="hsl(20, 18%, 16%)" />
-                      <YAxis tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 11 }} stroke="hsl(20, 18%, 16%)" allowDecimals={false} />
-                      <RechartsTooltip content={<CustomBarTooltip />} />
-                      <Bar dataKey="count" name="Employees" fill="hsl(30, 50%, 40%)" radius={[4, 4, 0, 0]}>
-                        {attendanceChartData.map((_, idx) => (
-                          <Cell key={`att-${idx}`} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
+              {/* Donut: Performance Distribution */}
+              <Card className="lg:col-span-2 bg-card border border-border/50 shadow-md shadow-black/5">
+                <TileHeader title="Performance Distribution" icon={<FiPercent className="w-3 h-3" />} />
+                <CardContent className="pt-0 pb-3 px-3">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={performanceTiers.filter(t => t.value > 0)}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius="50%"
+                        outerRadius="75%"
+                        paddingAngle={3}
+                        dataKey="value"
+                        label={renderCustomPieLabel}
+                        stroke="none"
+                      >
+                        {performanceTiers.filter(t => t.value > 0).map((tier, idx) => (
+                          <Cell key={`tier-${idx}`} fill={tier.color} />
                         ))}
-                      </Bar>
-                    </BarChart>
+                      </Pie>
+                      <RechartsTooltip content={<CustomBarTooltip />} />
+                    </PieChart>
                   </ResponsiveContainer>
+                  {/* Legend below donut */}
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 justify-center mt-1">
+                    {performanceTiers.map((t, i) => (
+                      <div key={i} className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: t.color }} />
+                        <span className="text-[10px] text-muted-foreground">{t.name}: {t.value}</span>
+                      </div>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Agent Status Section */}
-            <Card className="bg-card border border-border shadow-lg shadow-black/10">
-              <CardContent className="p-4">
+            {/* ===== ROW 3: LEADERBOARD TABLE + SCATTER ===== */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+              {/* Enhanced Leaderboard */}
+              <Card className="lg:col-span-3 bg-card border border-border/50 shadow-md shadow-black/5">
+                <TileHeader title="Employee Leaderboard" icon={<FiAward className="w-3 h-3" />} />
+                <CardContent className="pt-0 pb-3 px-2">
+                  <div className="flex items-center justify-between px-2 mb-1.5">
+                    <span className="text-[10px] text-muted-foreground">{sortedEmployees.length} employees</span>
+                    <span className="text-[10px] text-muted-foreground">Click row to drill down</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-border hover:bg-transparent">
+                          <TableHead className="text-muted-foreground text-[10px] tracking-wider uppercase w-[40px] py-2">#</TableHead>
+                          <TableHead className="text-muted-foreground text-[10px] tracking-wider uppercase cursor-pointer py-2" onClick={() => handleSort('name')}>
+                            <span className="flex items-center gap-1">Name <SortIcon field="name" /></span>
+                          </TableHead>
+                          <TableHead className="text-muted-foreground text-[10px] tracking-wider uppercase text-right cursor-pointer py-2" onClick={() => handleSort('productivity')}>
+                            <span className="flex items-center justify-end gap-1">Prod <SortIcon field="productivity" /></span>
+                          </TableHead>
+                          <TableHead className="text-muted-foreground text-[10px] tracking-wider uppercase text-right cursor-pointer py-2" onClick={() => handleSort('quality')}>
+                            <span className="flex items-center justify-end gap-1">Qual <SortIcon field="quality" /></span>
+                          </TableHead>
+                          <TableHead className="text-muted-foreground text-[10px] tracking-wider uppercase text-right cursor-pointer py-2" onClick={() => handleSort('attendance')}>
+                            <span className="flex items-center justify-end gap-1">Att <SortIcon field="attendance" /></span>
+                          </TableHead>
+                          <TableHead className="text-muted-foreground text-[10px] tracking-wider uppercase text-right cursor-pointer py-2" onClick={() => handleSort('late')}>
+                            <span className="flex items-center justify-end gap-1">Late <SortIcon field="late" /></span>
+                          </TableHead>
+                          <TableHead className="text-muted-foreground text-[10px] tracking-wider uppercase text-right cursor-pointer py-2" onClick={() => handleSort('finalPoints')}>
+                            <span className="flex items-center justify-end gap-1">Final <SortIcon field="finalPoints" /></span>
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {sortedEmployees.map((emp, idx) => {
+                          const rank = idx + 1
+                          return (
+                            <TableRow
+                              key={`${emp.empId}-${emp.month}-${idx}`}
+                              className={cn(
+                                'border-border cursor-pointer transition-colors duration-150',
+                                idx % 2 === 0 ? 'bg-secondary/5' : '',
+                                'hover:bg-secondary/30'
+                              )}
+                              onClick={() => setSelectedEmployee(emp.name)}
+                            >
+                              <TableCell className="py-2.5">
+                                <RankBadge rank={rank} />
+                              </TableCell>
+                              <TableCell className="py-2.5">
+                                <div>
+                                  <p className="text-xs font-medium text-foreground">{emp.name}</p>
+                                  <p className="text-[10px] text-muted-foreground">{emp.empId}</p>
+                                </div>
+                              </TableCell>
+                              {/* Productivity with inline bar */}
+                              <TableCell className="text-xs text-right py-2.5 relative">
+                                <div className="absolute inset-y-1 right-1 flex items-center" style={{ width: `${Math.min((emp.productivity / 100) * 75, 75)}%` }}>
+                                  <div className="h-5 w-full rounded-sm opacity-15" style={{ backgroundColor: kpiColor(emp.productivity) }} />
+                                </div>
+                                <span className={cn('relative z-10 font-medium', kpiColorClass(emp.productivity))}>{emp.productivity}</span>
+                              </TableCell>
+                              {/* Quality with inline bar */}
+                              <TableCell className="text-xs text-right py-2.5 relative">
+                                <div className="absolute inset-y-1 right-1 flex items-center" style={{ width: `${Math.min((emp.quality / 100) * 75, 75)}%` }}>
+                                  <div className="h-5 w-full rounded-sm opacity-15" style={{ backgroundColor: kpiColor(emp.quality) }} />
+                                </div>
+                                <span className={cn('relative z-10 font-medium', kpiColorClass(emp.quality))}>{emp.quality}</span>
+                              </TableCell>
+                              {/* Attendance with inline bar */}
+                              <TableCell className="text-xs text-right py-2.5 relative">
+                                <div className="absolute inset-y-1 right-1 flex items-center" style={{ width: `${Math.min((emp.attendance / 100) * 75, 75)}%` }}>
+                                  <div className="h-5 w-full rounded-sm opacity-15" style={{ backgroundColor: kpiColor(emp.attendance) }} />
+                                </div>
+                                <span className={cn('relative z-10 font-medium', kpiColorClass(emp.attendance))}>{emp.attendance}</span>
+                              </TableCell>
+                              {/* Late */}
+                              <TableCell className="text-xs text-right py-2.5">
+                                <span className={cn('font-medium', emp.late > 3 ? 'text-red-400' : emp.late > 1 ? 'text-amber-400' : 'text-green-400')}>
+                                  {emp.late}
+                                </span>
+                              </TableCell>
+                              {/* Final Points */}
+                              <TableCell className="text-xs text-right font-bold py-2.5" style={{ color: rank <= 3 ? (RANK_COLORS[rank] || 'hsl(35, 20%, 90%)') : 'hsl(35, 20%, 90%)' }}>
+                                {emp.finalPoints}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Scatter Plot: Productivity vs Quality */}
+              <Card className="lg:col-span-2 bg-card border border-border/50 shadow-md shadow-black/5">
+                <TileHeader title="Productivity vs Quality" icon={<FiTarget className="w-3 h-3" />} />
+                <CardContent className="pt-0 pb-3 px-3">
+                  <ResponsiveContainer width="100%" height={340}>
+                    <ScatterChart margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(20, 18%, 16%)" />
+                      <XAxis type="number" dataKey="productivity" name="Productivity" domain={[60, 100]} tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 10 }} stroke="hsl(20, 18%, 16%)" label={{ value: 'Productivity', position: 'insideBottom', offset: -5, fill: 'hsl(35, 15%, 45%)', fontSize: 10 }} />
+                      <YAxis type="number" dataKey="quality" name="Quality" domain={[60, 100]} tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 10 }} stroke="hsl(20, 18%, 16%)" label={{ value: 'Quality', angle: -90, position: 'insideLeft', offset: 10, fill: 'hsl(35, 15%, 45%)', fontSize: 10 }} />
+                      <RechartsTooltip content={<CustomScatterTooltip />} />
+                      <Scatter data={scatterData} fill="hsl(36, 60%, 31%)">
+                        {scatterData.map((entry, idx) => (
+                          <Cell
+                            key={`scatter-${idx}`}
+                            fill={entry.finalPoints >= 90 ? 'hsl(142, 40%, 35%)' : entry.finalPoints >= 80 ? 'hsl(36, 60%, 31%)' : 'hsl(0, 63%, 31%)'}
+                            r={Math.max(4, Math.min(entry.finalPoints / 12, 8))}
+                          />
+                        ))}
+                      </Scatter>
+                    </ScatterChart>
+                  </ResponsiveContainer>
+                  {/* Scatter legend */}
+                  <div className="flex gap-3 justify-center mt-1">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: 'hsl(142, 40%, 35%)' }} />
+                      <span className="text-[10px] text-muted-foreground">90+</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: 'hsl(36, 60%, 31%)' }} />
+                      <span className="text-[10px] text-muted-foreground">80-89</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: 'hsl(0, 63%, 31%)' }} />
+                      <span className="text-[10px] text-muted-foreground">&lt;80</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* ===== ROW 4: AREA CHART + HORIZONTAL BAR (Late Arrivals) ===== */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {/* Area Chart: Team Trend or Top 10 */}
+              <Card className="bg-card border border-border/50 shadow-md shadow-black/5">
+                <TileHeader
+                  title={monthlyTrendData.length > 1 ? 'Team Average Trend' : 'Top 10 by Final Points'}
+                  icon={monthlyTrendData.length > 1 ? <FiTrendingUp className="w-3 h-3" /> : <FiStar className="w-3 h-3" />}
+                />
+                <CardContent className="pt-0 pb-3 px-3">
+                  {monthlyTrendData.length > 1 ? (
+                    <ResponsiveContainer width="100%" height={280}>
+                      <AreaChart data={monthlyTrendData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                        <defs>
+                          <linearGradient id="gradProd" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="hsl(27, 61%, 35%)" stopOpacity={0.4} />
+                            <stop offset="95%" stopColor="hsl(27, 61%, 35%)" stopOpacity={0.05} />
+                          </linearGradient>
+                          <linearGradient id="gradQual" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="hsl(36, 60%, 31%)" stopOpacity={0.4} />
+                            <stop offset="95%" stopColor="hsl(36, 60%, 31%)" stopOpacity={0.05} />
+                          </linearGradient>
+                          <linearGradient id="gradAtt" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="hsl(30, 50%, 40%)" stopOpacity={0.4} />
+                            <stop offset="95%" stopColor="hsl(30, 50%, 40%)" stopOpacity={0.05} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(20, 18%, 16%)" />
+                        <XAxis dataKey="month" tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 10 }} stroke="hsl(20, 18%, 16%)" />
+                        <YAxis tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 10 }} stroke="hsl(20, 18%, 16%)" domain={[60, 100]} />
+                        <RechartsTooltip content={<CustomBarTooltip />} />
+                        <Legend wrapperStyle={{ fontSize: 10, color: 'hsl(35, 15%, 55%)' }} />
+                        <Area type="monotone" dataKey="productivity" name="Productivity" stroke="hsl(27, 61%, 35%)" fill="url(#gradProd)" strokeWidth={2} />
+                        <Area type="monotone" dataKey="quality" name="Quality" stroke="hsl(36, 60%, 31%)" fill="url(#gradQual)" strokeWidth={2} />
+                        <Area type="monotone" dataKey="attendance" name="Attendance" stroke="hsl(30, 50%, 40%)" fill="url(#gradAtt)" strokeWidth={2} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={280}>
+                      <BarChart data={top10ChartData} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(20, 18%, 16%)" />
+                        <XAxis dataKey="name" tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 10 }} stroke="hsl(20, 18%, 16%)" angle={-35} textAnchor="end" interval={0} />
+                        <YAxis tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 10 }} stroke="hsl(20, 18%, 16%)" />
+                        <RechartsTooltip content={<CustomBarTooltip />} />
+                        <Bar dataKey="finalPoints" name="Final Points" radius={[3, 3, 0, 0]}>
+                          {top10ChartData.map((_, idx) => (
+                            <Cell key={`cell-${idx}`} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Horizontal Bar: Late Arrivals */}
+              <Card className="bg-card border border-border/50 shadow-md shadow-black/5">
+                <TileHeader title="Late Arrivals by Employee" icon={<FiClock className="w-3 h-3" />} />
+                <CardContent className="pt-0 pb-3 px-3">
+                  {lateArrivalsData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={280}>
+                      <BarChart data={lateArrivalsData} layout="vertical" margin={{ top: 5, right: 20, left: 60, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(20, 18%, 16%)" horizontal={false} />
+                        <XAxis type="number" tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 10 }} stroke="hsl(20, 18%, 16%)" allowDecimals={false} />
+                        <YAxis type="category" dataKey="name" tick={{ fill: 'hsl(35, 15%, 55%)', fontSize: 10 }} stroke="hsl(20, 18%, 16%)" width={55} />
+                        <RechartsTooltip content={<CustomBarTooltip />} />
+                        <Bar dataKey="late" name="Late Days" radius={[0, 3, 3, 0]} barSize={16}>
+                          {lateArrivalsData.map((entry, idx) => (
+                            <Cell
+                              key={`late-${idx}`}
+                              fill={entry.late >= 5 ? 'hsl(0, 63%, 31%)' : entry.late >= 3 ? 'hsl(27, 61%, 35%)' : 'hsl(36, 60%, 31%)'}
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-[280px] flex items-center justify-center text-muted-foreground text-xs">
+                      No late arrivals recorded
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* ===== AGENT STATUS (compact) ===== */}
+            <Card className="bg-card border border-border/50 shadow-md shadow-black/5">
+              <CardContent className="px-4 py-2.5">
                 <div className="flex items-center gap-3 flex-wrap">
                   <div className="flex items-center gap-2">
-                    <div className={cn('w-2.5 h-2.5 rounded-full', activeAgentId ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground/40')} />
-                    <span className="text-xs text-muted-foreground tracking-wide uppercase">Performance Insight Agent</span>
+                    <div className={cn('w-2 h-2 rounded-full', activeAgentId ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground/40')} />
+                    <span className="text-[10px] text-muted-foreground tracking-wider uppercase">Performance Insight Agent</span>
                   </div>
-                  <Separator orientation="vertical" className="h-4 hidden sm:block" />
-                  <span className="text-xs text-muted-foreground font-mono">{AGENT_ID}</span>
-                  <Badge variant="outline" className="border-border text-muted-foreground text-xs ml-auto">
+                  <Separator orientation="vertical" className="h-3.5 hidden sm:block" />
+                  <span className="text-[10px] text-muted-foreground font-mono">{AGENT_ID}</span>
+                  <Badge variant="outline" className="border-border text-muted-foreground text-[10px] ml-auto py-0 h-5">
                     {activeAgentId ? 'Processing' : 'Ready'}
                   </Badge>
                 </div>
@@ -1132,29 +1447,29 @@ export default function Page() {
           </div>
         )}
 
-        {/* ---- AI INSIGHTS SHEET ---- */}
+        {/* ======== AI INSIGHTS SHEET ======== */}
         <Sheet open={insightsOpen} onOpenChange={setInsightsOpen}>
           <SheetContent side="right" className="w-full sm:max-w-lg lg:max-w-xl bg-card border-border p-0 flex flex-col">
-            <SheetHeader className="px-6 pt-6 pb-4 border-b border-border shrink-0">
-              <SheetTitle className="text-lg font-serif text-foreground flex items-center gap-2">
-                <FiMessageSquare className="w-5 h-5" style={{ color: 'hsl(36, 60%, 31%)' }} />
+            <SheetHeader className="px-5 pt-5 pb-3 border-b border-border shrink-0">
+              <SheetTitle className="text-sm font-serif text-foreground flex items-center gap-2">
+                <HiOutlineSparkles className="w-4 h-4" style={{ color: 'hsl(36, 60%, 31%)' }} />
                 AI Performance Insights
               </SheetTitle>
-              <SheetDescription className="text-xs text-muted-foreground">
+              <SheetDescription className="text-[10px] text-muted-foreground">
                 Powered by Performance Insight Agent
               </SheetDescription>
             </SheetHeader>
 
             <ScrollArea className="flex-1 overflow-y-auto">
-              <div className="px-6 py-4 space-y-4">
+              <div className="px-5 py-4 space-y-3">
                 {/* Insights loading */}
                 {insightsLoading && (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     <Skeleton className="h-20 rounded-lg bg-muted" />
                     <Skeleton className="h-16 rounded-lg bg-muted" />
                     <Skeleton className="h-16 rounded-lg bg-muted" />
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <FiActivity className="w-4 h-4 animate-spin" />
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <FiActivity className="w-3.5 h-3.5 animate-spin" />
                       Analyzing team performance data...
                     </div>
                   </div>
@@ -1162,18 +1477,18 @@ export default function Page() {
 
                 {/* Insights error */}
                 {insightsError && (
-                  <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 text-sm text-destructive flex items-start gap-2">
-                    <FiAlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 text-xs text-destructive flex items-start gap-2">
+                    <FiAlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                     <div>
                       <p className="font-medium">Failed to generate insights</p>
-                      <p className="text-xs mt-1 opacity-80">{insightsError}</p>
+                      <p className="text-[10px] mt-1 opacity-80">{insightsError}</p>
                     </div>
                   </div>
                 )}
 
                 {/* Insights cards */}
                 {insights && !insightsLoading && (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {/* Summary */}
                     {insights.summary && (
                       <InsightCard icon={<FiInfo className="w-4 h-4" />} title="Summary" color="hsl(36, 60%, 31%)">
@@ -1183,7 +1498,7 @@ export default function Page() {
                       </InsightCard>
                     )}
 
-                    {/* Top Performers */}
+                    {/* Top Performers with mini bar */}
                     {Array.isArray(insights.top_performers) && insights.top_performers.length > 0 && (
                       <InsightCard icon={<FiAward className="w-4 h-4" />} title="Top Performers" color="#C5A054">
                         <div className="space-y-2">
@@ -1191,11 +1506,17 @@ export default function Page() {
                             <div key={i} className="flex items-center gap-3 p-2 rounded-md bg-secondary/30">
                               <RankBadge rank={p?.rank ?? i + 1} />
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-foreground">{p?.name ?? 'Unknown'}</p>
-                                <p className="text-xs text-muted-foreground">{p?.highlight ?? ''}</p>
+                                <p className="text-xs font-medium text-foreground">{p?.name ?? 'Unknown'}</p>
+                                <p className="text-[10px] text-muted-foreground">{p?.highlight ?? ''}</p>
+                                {/* Mini score bar */}
+                                {(p?.final_points ?? 0) > 0 && (
+                                  <div className="mt-1 h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                                    <div className="h-full rounded-full" style={{ width: `${Math.min((p?.final_points ?? 0), 100)}%`, backgroundColor: '#C5A054' }} />
+                                  </div>
+                                )}
                               </div>
                               {(p?.final_points ?? 0) > 0 && (
-                                <Badge variant="outline" className="border-border text-foreground text-xs shrink-0">
+                                <Badge variant="outline" className="border-border text-foreground text-[10px] shrink-0 py-0 h-5">
                                   {p?.final_points}
                                 </Badge>
                               )}
@@ -1211,12 +1532,12 @@ export default function Page() {
                         <div className="space-y-2">
                           {insights.bottom_performers.map((p, i) => (
                             <div key={i} className="flex items-start gap-3 p-2 rounded-md bg-secondary/30">
-                              <div className="w-7 h-7 rounded-full bg-destructive/20 flex items-center justify-center text-xs font-medium text-destructive shrink-0">
+                              <div className="w-6 h-6 rounded-full bg-destructive/20 flex items-center justify-center text-[10px] font-medium text-destructive shrink-0">
                                 {p?.rank ?? '?'}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-foreground">{p?.name ?? 'Unknown'}</p>
-                                <p className="text-xs text-muted-foreground">{p?.concern ?? ''}</p>
+                                <p className="text-xs font-medium text-foreground">{p?.name ?? 'Unknown'}</p>
+                                <p className="text-[10px] text-muted-foreground">{p?.concern ?? ''}</p>
                               </div>
                             </div>
                           ))}
@@ -1230,13 +1551,13 @@ export default function Page() {
                         <div className="space-y-2">
                           {insights.attendance_flags.map((f, i) => (
                             <div key={i} className="flex items-start gap-3 p-2 rounded-md bg-secondary/30">
-                              <FiAlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'hsl(27, 61%, 35%)' }} />
+                              <FiAlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: 'hsl(27, 61%, 35%)' }} />
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-foreground">{f?.name ?? 'Unknown'}</p>
-                                <p className="text-xs text-muted-foreground">{f?.issue ?? ''}</p>
+                                <p className="text-xs font-medium text-foreground">{f?.name ?? 'Unknown'}</p>
+                                <p className="text-[10px] text-muted-foreground">{f?.issue ?? ''}</p>
                               </div>
                               {(f?.attendance_score ?? 0) > 0 && (
-                                <Badge variant="outline" className="border-border text-muted-foreground text-xs shrink-0">
+                                <Badge variant="outline" className="border-border text-muted-foreground text-[10px] shrink-0 py-0 h-5">
                                   {f?.attendance_score}%
                                 </Badge>
                               )}
@@ -1253,15 +1574,15 @@ export default function Page() {
                           {insights.trends.map((t, i) => (
                             <div key={i} className="flex items-start gap-3 p-2 rounded-md bg-secondary/30">
                               {t?.direction === 'up' || t?.direction === 'improving' ? (
-                                <FiTrendingUp className="w-4 h-4 shrink-0 mt-0.5 text-green-400" />
+                                <FiTrendingUp className="w-3.5 h-3.5 shrink-0 mt-0.5 text-green-400" />
                               ) : t?.direction === 'down' || t?.direction === 'declining' ? (
-                                <FiTrendingDown className="w-4 h-4 shrink-0 mt-0.5 text-red-400" />
+                                <FiTrendingDown className="w-3.5 h-3.5 shrink-0 mt-0.5 text-red-400" />
                               ) : (
-                                <FiActivity className="w-4 h-4 shrink-0 mt-0.5 text-muted-foreground" />
+                                <FiActivity className="w-3.5 h-3.5 shrink-0 mt-0.5 text-muted-foreground" />
                               )}
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-foreground">{t?.metric ?? 'Metric'}</p>
-                                <p className="text-xs text-muted-foreground">{t?.detail ?? ''}</p>
+                                <p className="text-xs font-medium text-foreground">{t?.metric ?? 'Metric'}</p>
+                                <p className="text-[10px] text-muted-foreground">{t?.detail ?? ''}</p>
                               </div>
                             </div>
                           ))}
@@ -1274,8 +1595,8 @@ export default function Page() {
                       <InsightCard icon={<FiCheckCircle className="w-4 h-4" />} title="Recommendations" color="hsl(36, 60%, 31%)">
                         <ul className="space-y-2">
                           {insights.recommendations.map((rec, i) => (
-                            <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                              <span className="w-5 h-5 rounded-full bg-accent/20 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5" style={{ color: 'hsl(36, 60%, 31%)' }}>
+                            <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                              <span className="w-4 h-4 rounded-full bg-accent/20 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5" style={{ color: 'hsl(36, 60%, 31%)' }}>
                                 {i + 1}
                               </span>
                               <span className="leading-relaxed">{rec ?? ''}</span>
@@ -1289,16 +1610,16 @@ export default function Page() {
 
                 {/* Chat messages */}
                 {chatMessages.length > 0 && insights && !insightsLoading && (
-                  <Separator className="my-4 bg-border" />
+                  <Separator className="my-3 bg-border" />
                 )}
 
                 {chatMessages.slice(1).map((msg, idx) => (
                   <div key={idx} className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
                     <div className={cn(
-                      'max-w-[85%] rounded-lg px-4 py-3 text-sm',
+                      'max-w-[85%] rounded-lg px-3.5 py-2.5 text-xs',
                       msg.role === 'user'
                         ? 'bg-accent text-accent-foreground'
-                        : 'bg-secondary text-foreground'
+                        : 'bg-secondary/80 backdrop-blur-sm text-foreground border border-border/30'
                     )}>
                       {msg.role === 'assistant' ? (
                         <div className="leading-relaxed">{renderMarkdown(msg.content)}</div>
@@ -1308,12 +1629,12 @@ export default function Page() {
 
                       {/* Inline agent response data */}
                       {msg.role === 'assistant' && msg.data && (
-                        <div className="mt-3 space-y-2">
+                        <div className="mt-2 space-y-2">
                           {Array.isArray(msg.data.top_performers) && msg.data.top_performers.length > 0 && (
                             <div>
-                              <p className="text-xs font-semibold text-foreground mb-1">Top Performers:</p>
+                              <p className="text-[10px] font-semibold text-foreground mb-1">Top Performers:</p>
                               {msg.data.top_performers.map((p, pi) => (
-                                <p key={pi} className="text-xs text-muted-foreground">
+                                <p key={pi} className="text-[10px] text-muted-foreground">
                                   {p?.rank ?? pi + 1}. {p?.name ?? 'Unknown'} - {p?.highlight ?? ''}
                                 </p>
                               ))}
@@ -1321,9 +1642,9 @@ export default function Page() {
                           )}
                           {Array.isArray(msg.data.recommendations) && msg.data.recommendations.length > 0 && (
                             <div>
-                              <p className="text-xs font-semibold text-foreground mb-1">Recommendations:</p>
+                              <p className="text-[10px] font-semibold text-foreground mb-1">Recommendations:</p>
                               {msg.data.recommendations.map((r, ri) => (
-                                <p key={ri} className="text-xs text-muted-foreground">{ri + 1}. {r ?? ''}</p>
+                                <p key={ri} className="text-[10px] text-muted-foreground">{ri + 1}. {r ?? ''}</p>
                               ))}
                             </div>
                           )}
@@ -1336,7 +1657,7 @@ export default function Page() {
                 {/* Chat loading */}
                 {chatLoading && (
                   <div className="flex justify-start">
-                    <div className="bg-secondary rounded-lg px-4 py-3 text-sm text-muted-foreground flex items-center gap-2">
+                    <div className="bg-secondary/80 backdrop-blur-sm border border-border/30 rounded-lg px-3.5 py-2.5 text-xs text-muted-foreground flex items-center gap-2">
                       <FiActivity className="w-3 h-3 animate-spin" />
                       Thinking...
                     </div>
@@ -1349,15 +1670,15 @@ export default function Page() {
 
             {/* Suggested questions */}
             {!insightsLoading && hasData && (
-              <div className="px-6 py-2 border-t border-border shrink-0">
-                <div className="flex gap-2 flex-wrap">
+              <div className="px-5 py-2 border-t border-border shrink-0">
+                <div className="flex gap-1.5 flex-wrap">
                   {SUGGESTED_QUESTIONS.map((q, i) => (
                     <button
                       key={i}
                       onClick={() => {
                         setChatInput(q)
                       }}
-                      className="text-xs px-3 py-1.5 rounded-full bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors border border-border"
+                      className="text-[10px] px-2.5 py-1 rounded-full bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors border border-border/50"
                     >
                       {q}
                     </button>
@@ -1367,13 +1688,13 @@ export default function Page() {
             )}
 
             {/* Chat input */}
-            <div className="px-6 py-4 border-t border-border shrink-0">
+            <div className="px-5 py-3 border-t border-border shrink-0">
               <div className="flex gap-2">
                 <Input
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   placeholder="Ask about team performance..."
-                  className="flex-1 bg-secondary border-border text-foreground placeholder:text-muted-foreground"
+                  className="flex-1 bg-secondary border-border text-foreground placeholder:text-muted-foreground text-xs h-9"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault()
@@ -1385,12 +1706,12 @@ export default function Page() {
                 <Button
                   onClick={handleChatSend}
                   disabled={chatLoading || !chatInput.trim()}
-                  className="bg-accent text-accent-foreground hover:bg-accent/80 shrink-0"
+                  className="bg-accent text-accent-foreground hover:bg-accent/80 shrink-0 h-9 w-9 p-0"
                 >
                   {chatLoading ? (
-                    <FiActivity className="w-4 h-4 animate-spin" />
+                    <FiActivity className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <FiSend className="w-4 h-4" />
+                    <FiSend className="w-3.5 h-3.5" />
                   )}
                 </Button>
               </div>
